@@ -11,7 +11,7 @@ Repo utilizado para elaborar el trabajo para la asignatura "Programación y mane
 
 
 
-La versión final del trabajo puede visualizarse en: <https://AlicjaMl.github.io/trabajo_BigData/>. 
+La versión final del trabajo puede visualizarse en: <https://alicjaml.github.io/trabajo_BigData/>. 
 
 Trabajo individual de Alicja Mlynek:
 **Multimillonarios en el mundo**

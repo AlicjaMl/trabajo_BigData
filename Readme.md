@@ -6,7 +6,7 @@ durante el curso 2021-2022. La página web de la asignatura puede verse
 aquí: <https://perezp44.github.io/intro-ds-21-22-web/>.
 
 La versión final del trabajo puede visualizarse en:
-<https://AlicjaMl.github.io/trabajo_BigData/>.
+<https://alicjaml.github.io/trabajo_BigData/>.
 
 Trabajo individual de Alicja Mlynek: **Multimillonarios en el mundo**
 
