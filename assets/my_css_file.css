@@ -1,0 +1,36 @@
+
+body
+{
+   font-family: Palatino Linotype;
+   background: linear-gradient(to right bottom, aliceblue, 75%, cadetblue);
+}
+
+
+H1 {
+    color: white;
+    text-shadow: 2px 2px 2px black, 2px 2px 10px DarkSeaGreen, 1px 1px 8px Darkblue;
+	font-weight: bold;
+	
+
+}
+
+H2{
+	font-weight: 500;
+    text-shadow: 1px 1px 2px gray;
+}
+
+H3{
+	font-weight: 400;
+    text-shadow: 1px 1px 1px darkgray;
+}
+
+p {
+	font-size: 16px;
+	text-align: justify;
+}
+
+#TOC {
+	/*color: teal;*/
+	box-shadow: 8px 8px 5px darkgray;
+	text-shadow: 0px 0px 1px gray;
+}
