@@ -1,0 +1,756 @@
+---
+title: "Multimillonarios en el mundo"
+subtitle: "Alicja Młynek (amly@alumni.uv.es)" 
+author: "Universitat de València"
+date: "Diciembre de 2021 (actualizado el `r format(Sys.time(), '%d-%m-%Y')`)"
+output:
+  html_document:
+    css: "./assets/my_css_file.css"
+    theme: paper
+    highlight: textmate 
+    toc: true
+    toc_depth: 3 
+    toc_float: 
+      collapsed: true
+      smooth_scroll: true
+    self_contained: true
+    number_sections: false
+    df_print: kable
+    code_download: true
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages-setup, include = FALSE}
+library(tidyverse)
+library(ggplot2)
+library(gganimate)
+library(wordcloud2) 
+library(tmap)
+library(RColorBrewer)
+library(gt) 
+library(gtExtras)
+library(klippy)  
+library(knitr)
+library(colorspace)
+library(hwordcloud)
+library(ggrepel)
+library(kableExtra)
+library(viridis)
+```
+
+```{r chunk-setup, include = FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = TRUE, message = FALSE, warning = FALSE, 
+                      #results = "hold",
+                      cache = FALSE, cache.path = "/caches/", comment = "#>",
+                      #fig.width = 7, #fig.height= 7,   
+                      #out.width = 7, out.height = 7,
+                      collapse = TRUE,  fig.show = "hold",
+                      fig.asp = 0.628, out.width = "75%", fig.align = "center")
+knitr::opts_chunk$set(dev = "png", dev.args = list(type = "cairo-png"))
+```
+
+
+```{r options-setup, include = FALSE}
+options(scipen = 999) #- para quitar la notación científica
+options("yaml.eval.expr" = TRUE) 
+```
+
+
+```{r klippy, echo = FALSE}
+klippy::klippy(position = c("top", "right")) #- remotes::install_github("rlesur/klippy")
+```
+
+
+<hr class="linea-black">
+
+<!-- El párrafo de abajo has de dejarlo casi igual, solo HAS de SUSTITUIR "perezp44" por tu usuario de Github-->
+Trabajo elaborado para la asignatura "Programación y manejo de datos en la era del Big Data" de la Universitat de València durante el curso 2021-2022. El repo del trabajo está [aquí](https://github.com/AlicjaMl/trabajo_BigData){target="_blank"}. 
+
+<!-- El párrafo de abajo has de dejarlo exactamente igual, NO HAS DE CAMBIAR NADA-->
+
+La página web de la asignatura y los trabajos de mis compañeros pueden verse [aquí](https://perezp44.github.io/intro-ds-21-22-web/07-trabajos.html){target="_blank"}.
+
+
+<hr class="linea-red">
+
+# [1. Introducción]{.verdecito}
+
+El 80% de la riqueza mundial está en manos del 1% de las personas, y en 2018 las 8 personas más ricas tenían tanta riqueza como la mitad más pobre de la humanidad[^1].
+
+Este trabajo tiene como objetivo mostrar cómo, según la revista Forbes, el grupo de las personas más ricas del mundo ha cambiado a lo largo de los años. Responderá a las preguntas de quiénes se encuentran entre las personas más ricas del mundo, en qué países se encuentran los multimillonarios y cómo cambia su edad y su riqueza promedio con el tiempo. Para 2021, se examinará la participación de diferentes sectores empresariales en la lista de 100 multimillonarios y para 2019, la referencia al ranking de libertad económica de los países del mundo.
+<br>
+
+# 2. Datos 
+## {.tabset}
+
+### Desgargando los datos 
+
+A lo largo de este análisis voy a utilizar los datos sacados de la pagina web [Kaggle](www.Kaggle.com).
+
+```{r class.source = 'fold-show', fig.dim=c(5, 3)}
+#Cargo los datos previamente desgargados de la pagina Kaggle
+df <- read.csv("./datos/billionaires.csv", fileEncoding="UTF-8")
+bil21 <- read.csv("./datos/Billionaire 2021.csv")
+bilgeo <- read.csv("./datos/forbes_billionaires_geo.csv")
+ecofree19 <- read.csv("./datos/economic_freedom_index2019_data.csv")
+
+```
+
+
+### Chequeando los datos
+
+
+```{r class.source = 'fold-show'}
+#chequeo tipo de datos en los datasets
+str(df)
+names(df)
+
+str(bil21)
+names(bil21)
+
+str(bilgeo)
+names(bilgeo)
+
+str(ecofree19)
+names(ecofree19)
+
+
+```
+
+### Procesando los datos
+
+```{r class.source = 'fold-show'}
+#cambio el nombre de la columna en df
+df <- df %>% rename(nationality = natinality)
+
+#Conjunto dos datasets de 2021
+bil21 <- bil21 %>% 
+  select(Name, Industry)
+
+bil21 <- left_join(bilgeo, bil21, by = "Name")
+
+rm(bilgeo)
+
+#ajusto el dataset a las necesidades del analisis 
+ecofree19 <- ecofree19 %>% 
+  select(Country = Country.Name, World.Rank, Region) %>% 
+  mutate(World_rank = as.integer(World.Rank), .before = Region) %>% 
+  select(!World.Rank)
+```
+
+<br><br><br><br>
+
+<br>
+
+# 3. Análisis de las personas más ricas en 2021
+
+Al principio quiero examinar la situación entre los multimillonarios en 2021. Voy a comprobar quién fue más rico en el mundo según Forbes en este año, en que industrias operaban los multimillonarios y en cuales países la concentración del patrimonio fue más grande. Luego iré a los datos personales como edad o número de hijos que tienen.
+
+## 3.1 Análisis general
+
+### Las cinco personas más ricas en el mundo en 2021
+
+En la siguiente tabla, podemos ver quién ocupó los 5 primeros lugares entre las personas más ricas del mundo según el ranking del Forbes, de qué países provienen las personas seleccionadas y cuál es la fuente de su riqueza.
+```{r}
+
+#tabla
+df1 <- df %>% 
+  filter(year == 2021, rank <= 5)
+
+photo <- c("https://besthqwallpapers.com/Uploads/12-2-2021/154136/thumb2-jeff-bezos-2021-american-entrepreneur-guys-american-celebrity.jpg", "https://s1.cdn.autoevolution.com/images/news/tesla-patents-are-now-free-for-all-company-wont-sue-if-used-in-good-faith-132103_1.jpg", 
+         "https://robbreport.com/wp-content/uploads/2020/01/shutterstock_1106081120-digi.jpg",
+         "https://miro.medium.com/max/900/1*NIcdbmI2XEeF4ZgANs-nTw.jpeg", "https://cdn.images.express.co.uk/img/dynamic/59/590x/625516_1.jpg")
+
+df1_con_fotos <- df1 %>% select(!year & !age) %>% add_column(photo) %>%
+  mutate(nationality = case_when(
+    str_detect(nationality,'France') ~ "https://raw.githubusercontent.com/BjnNowak/TdF/main/fr.png",
+    str_detect(nationality,'United States') ~ "https://raw.githubusercontent.com/BjnNowak/TdF/main/us.png"
+  ))
+
+
+df1_con_fotos %>% gt() %>% 
+  gt::text_transform(locations = cells_body(columns = c(photo)),
+                     fn = function(x) {gt::web_image(x, height = 80)}) %>% 
+  gtExtras::gt_img_rows(columns = nationality, height = 40) %>%
+  gtExtras::gt_theme_nytimes() %>% 
+  cols_label(
+    net_worth = md("Net worth<br>(billion $)"),
+    source_wealth = "source wealth") %>%
+  tab_style(
+    style = list(
+      cell_text(font=google_font(
+        name = "Roboto Condensed"
+      ), align = "center",v_align = "middle")),
+    locations = cells_column_labels(
+      columns = c(
+        rank, name, net_worth, nationality, source_wealth, photo)
+    ))
+
+```
+
+
+### Industrias más populares en 2021 que generan los ingresos para los multimillonarios
+
+En el siguiente paso descubriremos qué industrias generaron riqueza para los ricos en el ranking.
+
+```{r}
+
+# world cloud industry
+D_words <- bil21 %>%
+  select(Industry) %>%
+  group_by(Industry) %>% 
+  count(name = "Freq") %>% 
+  arrange(desc(Freq)) %>% 
+  ungroup()
+  
+
+Cl <- D_words
+
+hwordcloud(text = Cl$Industry, size = Cl$Freq, 
+           width = "100%", height = "320px",
+           theme = "darkblue")
+
+```
+Como podemos observar, el mayor número de empresas se encontraba en la industria financiera y de inversiones (371 empresas), seguida de la tecnología (366) y la manufactura (333 empresas). Los siguientes resultados se situaban por debajo de las 300 empresas (sanidad, inmobiliaria, alimentación y bebidas).
+
+
+### Concentración de riqueza en el mundo en 2021
+
+Ahora se mostrará en el mapa la concentración de riqueza en 2021.
+```{r}
+#mapa concentración del patrimonio en 2021
+
+data(World)
+world <- World ; rm(World)
+
+world1 <- world %>% 
+  select(Country = name, geometry)
+
+mapa1 <- bil21 %>% 
+  select(NetWorth, Country) %>% 
+  group_by(Country) %>% 
+  mutate (suma = sum(NetWorth)) %>% 
+  distinct(Country, suma) 
+
+mapa2 <- left_join(world1, mapa1, by = "Country")
+
+
+ggplot() + geom_sf(data = mapa2, aes(fill = suma)) +
+  scale_fill_continuous_sequential(palette = "Red-blue", name = "Miles de milliones de dólares")+
+  labs(
+    title = "Concentración del patrimonio en 2021"
+   ) +  theme_void() +
+   theme(legend.position = "bottom", legend.key.width = unit(1, "cm"))
+```
+Definitivamente, la mayor cantidad del patrimonio de las personas con una riqueza estimada en más de un millón de dólares se encuentra en los Estados Unidos, seguida de China. Al mismo tiempo, las personas con una riqueza igual o superior a mil millones de dólares se encuentran en prácticamente todos los continentes.
+
+## 3.2 Análisis de los datos personales de los multimillonarios en 2021
+
+En esta parte, voy a analizar disponibles datos personales de personas del ranking Forbes. Primero comenzaré mostrando una tabla con los resultados  extremos y medios de edad, patrimonio y número de hijos para el año 2021.
+
+### Datos extremos y medios: edad, riqueza y número de hijos
+
+
+```{r}
+#edad
+age <- bil21 %>% 
+  select(Age) %>% 
+  drop_na()
+
+min <- age %>% 
+  slice_min(Age, n = 1) %>% 
+  rename(Min = Age)
+
+max <- age %>% 
+  slice_max(Age, n = 1) %>% 
+  rename(Max = Age)
+
+mean <- age %>% 
+  summarise(Mean = mean(Age, na.rm = TRUE))
+
+#patrimonio
+Net <- bil21 %>% 
+  select(NetWorth)
+
+Nmin <- Net %>% 
+  slice_min(NetWorth, n = 1) %>% 
+  rename(Min = NetWorth)
+
+Nmax <- Net %>% 
+  slice_max(NetWorth, n = 1) %>% 
+  rename(Max = NetWorth)
+
+Nmean <- Net %>% 
+  summarise(Mean = mean(NetWorth, na.rm = TRUE))
+
+#hijos
+Child <- bil21 %>% 
+  select(Children) %>% 
+  drop_na()
+
+Cmin <- Child %>% 
+  slice_min(Children, n = 1) %>% 
+  rename(Min = Children)
+
+Cmax <- Child %>% 
+  slice_max(Children, n = 1) %>% 
+  rename(Max = Children)
+
+Cmean <- Child %>% 
+  summarise(Mean = mean(Children, na.rm = TRUE))
+
+# Tabla data
+TablaMean <- mean %>% 
+  rbind(Nmean, Cmean)
+
+TablaMax <- max %>% 
+  rbind(Nmax, Cmax)
+
+TablaMin <- min %>% 
+  rbind(1, 0)
+
+Tabla21 <- bind_cols(" " = rbind("Age", "Net Worth (billion $)", "Children")) %>% 
+  bind_cols(TablaMin, TablaMean, TablaMax) 
+
+rm(min, max, mean, Nmin, Nmax, Nmean, Cmin, Cmax, Cmean, TablaMin, TablaMax, TablaMean, Child)
+  
+# Tabla
+
+
+kbl(Tabla21) %>%
+  kable_material_dark()
+```
+Generalmente, el multimillonario más joven en 2021 tiene 18 años, y el multimillonario más mayor tiene 99 años. La edad promedio en la lista es 63. Lo que muestra que un gran grupo de las 2761 personas que están en la lista son personas de mediana edad y mayores.
+
+Para aparecer en la lista, el patrimonio neto debe ser de 1 mil millones de dólares, por lo tanto, este es el mínimo. El patrimonio neto promedio fue casi 5 mil millones, y el número uno en el ranking de los multimillonarios es una riqueza de 177 mil millones de dólares.
+
+Podemos afirmar que los multimillonarios tienen un promedio de tres hijos y el poseedor del récord en la lista tiene hasta 23 hijos y este es Roman Avdeev de Russia. 
+
+
+
+### Distribución de edad media y desviación típica.
+
+En el gráfico de barras se mostrará la distribución de edad de los multimillonarios.
+```{r}
+age <- bil21 %>% 
+  select(Age) %>% 
+  drop_na()
+
+age_mean <- bil21 %>% 
+  select(Name, Rank, Age, NetWorth, Children, Education) %>% 
+  summarise(Mean = mean(Age, na.rm = TRUE), Des = sd(Age, na.rm = TRUE))
+
+ggplot(age, aes(Age)) +
+  geom_histogram(binwidth = 1, aes(y=..density..),  color="darkgrey", fill = "steelblue", alpha = 0.5)+
+  geom_density( color="purple", size = 1) +
+  stat_function(fun = dnorm, colour = "red", size = 1, args = list(mean = age_mean$Mean, sd = age_mean$Des))  + 
+  xlim(c(15, 100)) +
+  theme_minimal()+ 
+  theme(axis.text.x=element_text(colour = "grey20", size = 8), axis.text.y=element_text(colour = "grey20", size = 8)) +
+  annotate(geom = "text", x = 63.26, y = 0.033, label = "mean age = 63", size = 4.5, color = "darkblue") +
+  #annotate(geom = "point", x = 63.26, y = 0.0297, colour = "firebrick3", size = 5, shape = 8) %>% 
+  annotate("segment", x = 63.26, xend = 63.26, y = 0.0297, yend = 0.0319, colour = "darkblue", arrow = arrow(length = unit(2, "mm")))
+
+```
+
+Podemos notar que la mayor densidad de personas se encuentra en el rango de edad de 50 a 75 años. La edad promedio de las personas en la lista de Forbes es de aproximadamente 63 años. La densidad más alta está por delante del punto medio, como lo confirma la línea de desviación típica, en púrpura.
+
+### Edad y nacionalidad de las 5 personas más jóvenes en el ranking
+
+```{r}
+age_min <- bil21 %>% 
+  select(Name, Age, Rank, NetWorth, Country, Children, Education) %>% 
+  slice_min(Age, n=5)
+
+ggplot(age_min, aes(x=Name, y=Age, label = Country)) +
+  geom_segment(aes(x=Name, xend=Name, y=0, yend=Age), color="orange", size = 1, linetype="dotdash") +
+  geom_point(color="red", size=8, alpha=0.6) +
+  geom_text(data = age_min, aes(label = Age), color = "yellow", size = 4) +
+  coord_flip() +
+  theme_light() +
+  geom_label_repel()
+```
+
+El más joven de la lista es Kevin DavidLehmann, de 18 años, de Alemania. Él es la única persona en la lista de menores de 20 años. Este es un logro notable, a pesar de que la fortuna es patrimonio familiar y no proviene de su propio negocio. Entre las 5 personas más jóvenes también hay hermanos de Noruega y un ciudadano chino de 24 años. La lista la cierra Austin Russell, de 26 años, de Estados Unidos, que es el único que es el creador de su propia fortuna. Como dice wikipedia: *“Su empresa Luminar Technologies se especializa en tecnologías lidar y percepción de máquinas, utilizadas principalmente en automóviles autónomos”* [^2].
+
+### Edad contra patrimonio
+
+```{r}
+# age vs networth
+
+AgeNet <- bil21 %>% 
+  select(Age, NetWorth) %>% 
+  drop_na()
+
+ggplot(AgeNet, aes(Age, NetWorth)) +
+  geom_point() +
+  geom_jitter(color = "skyblue", alpha = 0.2) +
+  coord_flip() +
+    theme_minimal() +
+  labs(
+    title = "Relación entre edad y patrimonio neto",
+    y = "Net worth"
+  )
+
+```
+
+Como se puede ver en el gráfico, la mayor cantidad de personas tiene activos que no superan los 25 mil millones dólares, y entre ellos, como vimos en el gráfico anterior, el grupo de edad más grande son las personas entre 50 y 75 años. Al mismo tiempo, es difícil percibir la relación entre edad y riqueza, aunque las personas con el patrimonio neto más alto no son extremadamente jóvenes (menos de 35) o extremadamente mayores (más de 90). Entonces, parece que la construcción de una fortuna no depende de la edad, sino de la capacidad empresarial o del patrimonio familiar.
+
+
+### Edad y numero de hijos de las 5 personas mas ancianos en el ranking
+
+```{r}
+age_max <- bil21 %>% 
+  select(Name, Age, Rank, NetWorth, Country, Children, Education) %>% 
+  slice_max(Age, n=5)
+
+
+ggplot(age_max, aes(x=Name, y=Age)) +
+  geom_segment(aes(x=Name, xend=Name, y=0, yend=Age), color="skyblue") +
+  geom_point(color="darkblue", size=7, alpha=0.6) +
+  geom_segment(aes(x=Name, xend=Name, y=0, yend=Children), color="skyblue") +
+  geom_point(data = age_max, aes(Name, Children, color="pink", size=7, alpha=0.6)) +
+  geom_text(data = age_max, aes(label = Age), color = "lightpink", size = 4) +
+  theme_light() +
+  coord_flip() +
+  labs(
+    title = "Número de hijos y edad",
+    subtitle = "Las 6 personas más ancianas en el ranking en 2021",
+    y = "Number of children and age"
+  ) +
+  theme(legend.position = "none") +
+  annotate(geom = "text", x = "Robert Kuok", y = 8, label = "8", size = 4, color = "darkblue") +
+  annotate(geom = "text", x = "Masatoshi Ito", y = 3, label = "3", size = 4, color = "darkblue") +
+  annotate(geom = "text", x = "George Joseph", y = 5, label = "5", size = 4, color = "darkblue") +
+  annotate(geom = "text", x = "David Murdock", y = 3, label = "3", size = 4, color = "darkblue") +
+  annotate(geom = "text", x = "Charles Munger", y = 8, label = "8", size = 4, color = "darkblue") +
+  annotate(geom = "text", x = "Masatoshi Ito", y = 49, label = "Número de hijos", size = 4, color = "darkblue") +
+  annotate(geom = "curve", x = "Masatoshi Ito", y = 33, xend = "Robert Kuok", yend = 10, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "Masatoshi Ito", y = 33, xend = "Masatoshi Ito", yend = 5, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "Masatoshi Ito", y = 33, xend = "George Joseph", yend = 7, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm")))+
+  annotate(geom = "curve", x = "Masatoshi Ito", y = 33, xend = "David Murdock", yend = 5, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "Masatoshi Ito", y = 33, xend = "Charles Munger", yend = 10, 
+           curvature = .2, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "text", x = "David Murdock", y = 56, label = "Edad", size = 4, color = "darkblue") +
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "Robert Kuok", yend = 94, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "Masatoshi Ito", yend = 94, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "George Joseph", yend = 95, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm")))+
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "David Murdock", yend = 95, 
+           curvature = .3, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "Charles Munger", yend = 94, 
+           curvature = .2, color = "skyblue", arrow = arrow(length = unit(2, "mm"))) +
+  annotate(geom = "curve", x = "David Murdock", y = 63, xend = "Ana Maria Brescia Cafferata", yend = 94, 
+           curvature = .2, color = "skyblue", arrow = arrow(length = unit(2, "mm")))
+
+```
+
+El gráfico muestra a las personas que ocupan los primeros 5 lugares entre las personas más ancianos de la lista. De hecho, el gráfico muestra los primeros 3 lugares con 6 personas, ya que el tercer lugar son las personas del mismo año, a la impresionante edad de 97 años. Los datos disponibles indican que 5 de los 6 multimillonarios más ancianos son hombres y tienen al menos tres hijos. 
+
+
+### Las 5 personas que tienen más hijos
+
+Al tener una fortuna muy grande, es extremadamente importante tener herederos. Por lo tanto, muy a menudo las personas más ricas del mundo tienen muchos descendientes a quienes pueden transmitir su riqueza. Ahora comprobaremos quiénes son las personas con el mayor número de hijos, cuántos años tienen, de qué países son, cuánto patrimonio tienen y qué puesto ocupan en la lista de Forbes. 
+
+
+```{r}
+Rec <- bil21 %>% 
+  select(Name, Children, Age, Country, NetWorth, Rank, Source) %>% 
+  slice_max(Children, n = 5)
+
+
+
+kbl(Rec, align = "c") %>% 
+  kable_minimal() %>% 
+  column_spec(2, bold = T, color = "lightcoral") %>% 
+  column_spec(1, bold = T) %>% 
+  kable_styling(fixed_thead = list(enabled = T, 
+                                   background = "lightcoral"))
+
+```
+
+Como muestran los datos de la tabla, el poseedor del récord es Roman Avdeev de Rusia, que tiene 23 hijos. Los siguientes lugares en el ranking pertenecen a los ciudadanos de Omán, Estados Unidos e Israel. Todas las personas de la lista son hombres y cada uno tiene más de 10 descendientes.
+
+
+### Relación entre el patrimonio neto y el número de hijos
+
+```{r}
+
+NetChild <- bil21 %>% 
+  select(Name, NetWorth, Children) %>% 
+  drop_na()
+
+ggplot(NetChild, aes(NetWorth, Children)) +  
+  geom_point(color = "lightpink3", size = 2) +
+  geom_point(shape = 1, color = "pink4") +
+  geom_jitter(color = "mistyrose1", alpha = 0.2) +
+  theme_minimal() +
+  labs(
+    title = "Relación entre patrimonio neto y numero de hijos",
+    x = "Number of children",
+    y = "Net worth"
+  ) +
+    annotate(geom = "text", x = 23, y = 24, label = "23 hijos, 1.8 mil millones $", color = "pink4") +
+  annotate(geom = "text", x = 171, y = 8, angle=90, label = " 177 mil millones $, 4 hijos", color = "pink4")
+```
+
+El gráfico muestra que el grupo más grande no tiene más de 5 hijos y, al mismo tiempo, tiene una riqueza de hasta 25 mil millones dólares. Los extremos son 23 niños y 1,8 mil millones dólares del patrimonio neto de Roman Avdeev, y 177 mil millones dólares y 4 niños, un resultado que pertenece a Jeff Bezos.
+
+
+### Estado civil de los multimillonarios en 2021
+
+Al final de esta parte del análisis, en el gráfico circular, veremos el estado civil de las personas con más de 1 mil millones dólares del patrimonio.
+
+```{r}
+stan <- bil21 %>% 
+  select(Status) %>% 
+  group_by(Status) %>% 
+  summarise(NN = n()) %>% 
+  arrange(desc(NN)) %>% 
+  ungroup()
+stan[2, 1] <- "Unknown"
+
+
+
+
+ggplot(stan, aes(x = "", y = NN, fill = Status))+
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start=0) +
+  scale_fill_discrete_sequential(palette = "Hawaii") +
+  theme_minimal() +
+  labs(title = "Civil status",
+       x = " ",
+       y = " ")
+
+```
+Definitivamente más del 60% de las personas están casadas, las partes más pequeñas están ocupadas por personas divorciadas, viudas o solteras. Aproximadamente el 25% de los datos son de "estado desconocido".
+<br>
+
+# 4. Análisis de las personas más ricas a lo largo del tiempo
+
+En la segunda parte voy a usar los datos de los años 2002 - 2021, que indican las 10 personas más ricas en cada año. El database contiene también el tamaño del patrimonio neto, edad nacionalidad y la fuente de riqueza. Intentaré comprobar cómo cambian los resultados a lo largo del tiempo.
+
+
+
+## El cambio del tamaño del patrimonio a lo largo del tiempo
+
+Ahora venimos a ilustrar el cambio en el tamaño del patrimonio en el período 2002-2021. Además podremos observar los cambios de las personas (o familias) en los seleccionados puestos del ranking. 
+
+```{r}
+
+
+Fortune <- df %>% 
+  group_by(year) 
+
+ggplot( Fortune,
+        aes(year, net_worth, group = rank, color = factor(rank))
+) +
+  geom_line() +
+  scale_color_viridis_d() +
+  
+  geom_text(check_overlap = TRUE, show.legend = FALSE, hjust = 1, vjust = 0, nudge_y = 2, aes(label = name)) +
+  labs(x = "Year",
+       y = "Net worth",
+       color = "Rank") +
+  theme_minimal() +
+  theme(legend.position = "bottom", legend.key.width = unit(0.5, "cm")) +
+  scale_x_continuous(breaks = seq(2000, 2025, 5), limits = c(2000, 2025)) +
+  transition_reveal(year) +
+  view_follow() 
+
+```
+
+En general, la tendencia es creciente, lo que significa, que el patrimonio en los 10  primeros puestos de la lista de Forbes es mayor casi cada año, o podemos decir, que el patrimonio aumenta en oleadas. Vale la pena mencionar que en 2002 el tamaño del patrimonio neto en el primer puesto de la lista fue 60 mil millones dólares, mientras que en el año 2021 es 177 mil millones dólares. Esto confirma la tesis de que los ricos se están volviendo más ricos y que la desigualdad de ingresos en el mundo se está profundizando[^3].
+
+## La edad promedio de las 10 personas más ricas en 2002-2021
+
+En la siguiente animación podemos observar como cambia la edad media entre 2002 y 2021. Un tono más rojo, significa un promedio de edad más alto, el tinte amarillo - la edad media más baja. En el primer periodo la edad promedio creció, después fue variable pero alcanzó el más alto resultado en 2015, cuando fue de 74.3 años. Es importante destacar que desde 2003 la edad media de las 10 personas más ricas en el mundo no cayó por debajo de 60 años.
+
+```{r}
+AgeMean <- df %>% 
+  group_by(year) %>% 
+  summarise(Mean = mean(age))
+
+ggplot(AgeMean, aes(year, Mean, fill = Mean)) +
+  geom_col()+
+  theme_minimal() +
+  xlab("Year") +
+  theme(
+    panel.grid = element_blank(),
+    panel.grid.major.y = element_line(color = "white"),
+    panel.ontop = TRUE,
+    legend.position = "none"
+  ) +
+  scale_fill_continuous_sequential(palette = "OrYel") +
+  scale_y_continuous(breaks = seq(0, 80, 20), limits = c(0, 80)) +
+  transition_states(year, wrap = FALSE) +
+  shadow_mark()
+```
+
+
+## Mapa de concentración del patrimonio en 2002-2021
+
+En el mapa de abajo se muestra el cambio en la concentración de la riqueza que pertenece a las 10 personas más ricas del mundo, desglosado por país. 
+
+```{r}
+data(World)
+world <- World ; rm(World)
+
+world1 <- world %>% 
+  select(Country = name, geometry)
+
+mapa2 <- df %>% 
+  select(year, net_worth, Country = nationality) %>% 
+  group_by(year, Country) %>% 
+  mutate (suma = sum(net_worth)) %>% 
+  distinct(year, Country, suma) 
+
+mapa3 <- left_join(world1, mapa2, by = "Country")%>% 
+  drop_na()
+
+ggplot() + 
+  geom_sf(data = world1) +
+  geom_sf(data = mapa3, aes(fill = suma)) +
+  scale_fill_continuous_sequential(palette = "Dark Mint", name = "Miles de milliones de dólares")+
+  labs(
+    title = "Year: {current_frame}"
+  ) +  theme_void() +
+   theme(legend.position = "bottom", legend.key.width = unit(1, "cm")) +
+  transition_manual(year)
+```
+Es bastante obvio que en cada año, los Estados Unidos son marcados en el mapa, pero lo más interesante es, que la variedad de los países a la vanguardia disminuye cada año y los Estados Unidos concentran más y más de la riqueza. España desaparece del mapa en 2021, con la desaparición de la lista de las 10 personas más ricas de **Amancio Ortega**. Aunque, curiosamente se sitúa  justo fuera de los 10 mejores puestos, en el puesto 11[^4].
+<br>
+
+# 5. Comparación: el ranking Forbes y el ranking de libertad económica
+
+## El rango de los países en el ranking de los multimillonarios y en el ranking de libertad económica
+
+Teniendo en cuenta que la riqueza tarda años en acumularse, decidí que tal comparación podría tener sentido. Para las necesidades de esta comparación, construí el ranking de países. El mejor puesto tiene el país que apareció más veces en la lista de los 10 multimillonarios en los años 2002-2019. Por otro lado, usaba el ranking de la libertad económica del 2019. Podemos observar los resultados en la tabla y en el gráfico. Los puntos azules marcan las posiciones de los países en el ranking de los multimillonarios y los cuadrados indican lugares en el ranking de libertad económica.
+
+```{r}
+
+rank1 <- df %>% 
+  filter(year <= 2019) %>% 
+  select(Country = nationality) %>% 
+  count(Country) %>% 
+  rename(Observations = n) %>% 
+  arrange(desc(Observations)) %>% 
+  mutate(Rank = c(1:13)) %>% 
+  select(!Observations)
+
+rank1 <- left_join(rank1, ecofree19, by = "Country")
+
+rank1 <- rank1 %>% 
+  rename("RankE" = "World_rank")
+
+kbl(rank1) %>% 
+  kable_minimal() %>% 
+  scroll_box(width = "420px", height = "160px") %>% 
+  kable_styling(position = "c")
+  
+  
+ggplot(rank1) +
+  geom_segment(aes(x = Rank, xend = Rank, y = Rank, yend = RankE), color = "lightsteelblue3") +
+  geom_point(aes(x = Rank, y = Rank), color = "midnightblue", shape = 20, size = 3, fill = "lightcyan1", stroke = 1) +
+  geom_point(aes(x = Rank, y = RankE), color = "midnightblue", shape = 22, size = 3, fill = "oldlace", stroke = 1) +
+  scale_x_reverse(breaks = seq(1, 13, 1), label = c("United States", "Mexico", "India", "Spain", "France", "Germany", "Sweden", "Hong Kong", "Saudi Arabia", "Brazil", "Canada", "Japan", "Russia" )) +
+  coord_flip() +
+  theme_minimal() +
+  labs(
+    title = "Los puestos en dos rankings",
+    x = "Country"
+  ) +
+  scale_y_continuous(breaks = seq(1, 150, 149))
+
+```
+
+Analizando los resultados, como se puede ver, los Estados Unidos son el lugar que aparece con mayor frecuencia en la lista de las personas más ricas del mundo. También aparecieron allí varios países europeos, entre ellos España. Cuando comparamos los resultados de estos países en el ranking de libertad económica, a veces los puestos en ambos rankings son muy altos, pero para los países como Brasil, India o Rusia los resultados son divergentes. Estos países se situaban en la lista de los multimillonarios (esto ya es una distinción), pero su libertad económica no está en un puesto alto. Así que la comparación del ranking de los países más populares en la lista de los multimillonarios y el ranking de la libertad económica para estos países nos muestra que no hay una conexión entre estos factores.
+<br>
+
+# 6. Amancio Ortega en la lista de Forbes
+
+Al final, un pequeño bonus. ¿Cuál es la presencia del único representante de España entre las 10 personas más ricas del mundo? En primer lugar, un poquito de datos sobre este célebre español, del año 2021. Luego un dibujo que muestra su imagen y por último, el cambio de su patrimonio neto a lo largo del tiempo. 
+
+```{r}
+ortega <- df %>% 
+  filter(name == "Amancio Ortega")
+
+ortegaT <- ortega %>% 
+  filter(year == 2020) %>% 
+  select(name, age, nationality, source = source_wealth)
+
+kbl(ortegaT, align = "c") %>% 
+  kable_paper() %>% 
+  row_spec(1, bold = T, color = "white", background = "chocolate")
+
+knitr::include_graphics(here::here("./assets/ortega3.jpeg"))
+
+```
+
+
+```{r}
+ortegaG <- ortega %>% 
+  select(year, net_worth, rank)
+
+
+ggplot(ortegaG, aes(year, net_worth)) +
+  geom_line(color = "darkolivegreen3") +
+  geom_point(color = "chocolate4", shape = 1, size = 3) +
+  theme_minimal() +
+  scale_x_continuous(breaks = seq(2007, 2021, 2), limits = c(2007, 2021)) +
+  labs(
+    title = "El cambio del patrimonio de Amancio Ortega",
+    x = "Year",
+    y = "Net worth (billion $)"
+  ) + 
+  annotate(geom = "text", x = 2007, y = 27, label = "24.0", size = 4) +
+  annotate(geom = "text", x = 2017, y = 74, label = "71.3", size = 4) +
+  annotate(geom = "point", shape = 1, x = 2017, y = 71.3, size = 3, color = "chocolate4") +
+  transition_reveal(year)
+```
+<br><br>
+<hr class="linea-red">
+
+
+
+# 7. Bibliografía y trabajos en los que ha basado
+
+Para este análisis, utilicé las siguientes fuentes de Internet:
+
+- [Forbes billionaires](https://www.forbes.com/billionaires/)
+- [Kaggle](https://www.kaggle.com/)
+- [Oxfam](https://www.oxfam.org/es/taxonomy/term/1480)
+- <https://biznes.gazetaprawna.pl/artykuly/8316197,bogacenie-sie-najbogatszych-statystyki.html>
+- <https://www.parkiet.com/Gospodarka---Swiat/309299866-Bogaci-sa-coraz-bogatsi.html>
+- <https://businessinsider.com.pl/finanse/jaki-procent-majatku-swiata-posiadaja-najbogatsi-dane-2017-rok/9ldrpw8>
+- <https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html#Table_Styles>
+- <https://bjnnowak.netlify.app/2021/10/04/r-beautiful-tables-with-gt-and-gtextras/>
+- <https://en.wikipedia.org/wiki/Austin_Russell_(entrepreneur)>
+- <https://developer.mozilla.org/pl/docs/Learn/Getting_started_with_the_web/CSS_basics>
+- <http://how2html.pl/czcionka-css/>
+
+<br>
+<hr class="linea-red">
+
+```{r, echo = FALSE}
+sessioninfo::session_info() %>% details::details(summary = 'Información de mi R-sesión:') 
+```
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
+<br><br>
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
+<hr class="linea-red">
+
+[^1]: OXFAM, 2018
+[^2]: Wikipedia, "Austin Russel"
+[^3]: Lichnerowicz, 2021
+[^4]: Forbes, 2021
